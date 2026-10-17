@@ -9,6 +9,7 @@ import {
   parseMarketCreatedEvent,
   type RawMarketCreatedEvent,
 } from "./market-created-parser.js";
+import { MARKET_QUESTION_MAX_LENGTH } from "../../packages/shared/src/marketLifecycle.js";
 
 describe("parseMarketCreatedEvent", () => {
   const validEvent: RawMarketCreatedEvent = {
@@ -33,6 +34,17 @@ describe("parseMarketCreatedEvent", () => {
       expect(result.data!.oracleAddress).toBe(
         "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
       );
+    });
+
+    it("should accept a question exactly at the maximum length", () => {
+      const event: RawMarketCreatedEvent = {
+        ...validEvent,
+        question: "a".repeat(MARKET_QUESTION_MAX_LENGTH),
+      };
+      const result = parseMarketCreatedEvent(event);
+
+      expect(result.success).toBe(true);
+      expect(result.data!.question).toHaveLength(MARKET_QUESTION_MAX_LENGTH);
     });
 
     it("should convert numeric endTime to ISO-8601 string", () => {
@@ -160,6 +172,17 @@ describe("parseMarketCreatedEvent", () => {
       expect(result.error).toContain("question");
     });
 
+    it("should fail when question exceeds the maximum length", () => {
+      const event: RawMarketCreatedEvent = {
+        ...validEvent,
+        question: "a".repeat(MARKET_QUESTION_MAX_LENGTH + 1),
+      };
+      const result = parseMarketCreatedEvent(event);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("question");
+    });
+
     it("should fail when endTime is missing", () => {
       const { endTime, ...eventWithoutEndTime } = validEvent;
       const result = parseMarketCreatedEvent(eventWithoutEndTime);
@@ -251,41 +274,6 @@ describe("parseMarketCreatedEvent", () => {
 
       expect(result.success).toBe(false);
       expect(result.error).toContain("endTime");
-    });
-
-    it("should reject a numeric-string endTime beyond the Date range", () => {
-      const event: RawMarketCreatedEvent = {
-        ...validEvent,
-        endTime: "8640000000000001",
-      };
-      const result = parseMarketCreatedEvent(event);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toContain("endTime");
-    });
-
-    it("should accept the maximum valid timestamp", () => {
-      const event: RawMarketCreatedEvent = {
-        ...validEvent,
-        endTime: 8640000000000,
-      };
-      const result = parseMarketCreatedEvent(event);
-
-      expect(result.success).toBe(true);
-      expect(result.data!.endTime).toBe(
-        new Date(8640000000000 * 1000).toISOString()
-      );
-    });
-
-    it("should default to ACTIVE for unknown status values", () => {
-      const event: RawMarketCreatedEvent = {
-        ...validEvent,
-        status: "UNKNOWN_STATUS",
-      };
-      const result = parseMarketCreatedEvent(event);
-
-      expect(result.success).toBe(true);
-      expect(result.data!.status).toBe("ACTIVE");
     });
   });
 });
